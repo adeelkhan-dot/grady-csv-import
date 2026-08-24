@@ -38,6 +38,12 @@ afterAll(async () => {
 });
 
 test("import_jobs has processing counts, nullable error, and allowed statuses", async () => {
+  await pool.query(
+    `UPDATE import_jobs
+     SET status = 'failed',
+         error_message = 'test isolation'
+     WHERE status IN ('queued', 'processing')`,
+  );
   const job = await createQueuedJob(pool, {
     operatorId,
     originalFilename: `schema-status-${Date.now()}.csv`,
@@ -118,4 +124,33 @@ test("queued filename uniqueness index is unchanged", async () => {
   );
   expect(index.rows[0].indexdef).toContain("status")
   expect(index.rows[0].indexdef).toContain("'queued'");
+});
+
+test("at most one import job can be processing", async () => {
+  await pool.query(
+    `UPDATE import_jobs
+     SET status = 'failed',
+         error_message = 'test isolation'
+     WHERE status IN ('queued', 'processing')`,
+  );
+  const first = await createQueuedJob(pool, {
+    operatorId,
+    originalFilename: `schema-one-processing-${randomUUID()}.csv`,
+    bytes: Buffer.from("email,first_name,last_name\n"),
+  });
+  const second = await createQueuedJob(pool, {
+    operatorId,
+    originalFilename: `schema-two-processing-${randomUUID()}.csv`,
+    bytes: Buffer.from("email,first_name,last_name\n"),
+  });
+  await pool.query("UPDATE import_jobs SET status = $1 WHERE id = $2", [
+    "processing",
+    first.id,
+  ]);
+  await expect(
+    pool.query("UPDATE import_jobs SET status = $1 WHERE id = $2", [
+      "processing",
+      second.id,
+    ]),
+  ).rejects.toThrow();
 });

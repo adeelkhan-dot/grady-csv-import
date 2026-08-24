@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { Pool, PoolClient } from "pg";
 import { removeJobFile, writeJobFile } from "@/lib/storage";
+import { isUniqueViolation } from "@/lib/upload";
 
 type Queryable = Pool | PoolClient;
 
@@ -86,30 +87,37 @@ export async function failInterruptedJobs(pool: Pool): Promise<number> {
 }
 
 export async function claimQueuedJob(pool: Pool): Promise<ImportJob | null> {
-  const result = await pool.query<ImportJob>(
-    `WITH next_job AS (
-       SELECT id
-       FROM import_jobs
-       WHERE status = $1
-         AND NOT EXISTS (
-           SELECT 1 FROM import_jobs WHERE status = $2
-         )
-       ORDER BY created_at ASC
-       LIMIT 1
-       FOR UPDATE SKIP LOCKED
-     )
-     UPDATE import_jobs AS jobs
-     SET status = $2,
-         processed = 0,
-         success = 0,
-         failure = 0,
-         error_message = NULL
-     FROM next_job
-     WHERE jobs.id = next_job.id
-     RETURNING jobs.id, jobs.operator_id, jobs.original_filename, jobs.stored_path, jobs.size_bytes, jobs.status, jobs.processed, jobs.success, jobs.failure, jobs.error_message, jobs.created_at`,
-    [QUEUED_STATUS, PROCESSING_STATUS],
-  );
-  return result.rows[0] ?? null;
+  try {
+    const result = await pool.query<ImportJob>(
+      `WITH next_job AS (
+         SELECT id
+         FROM import_jobs
+         WHERE status = $1
+           AND NOT EXISTS (
+             SELECT 1 FROM import_jobs WHERE status = $2
+           )
+         ORDER BY created_at ASC
+         LIMIT 1
+         FOR UPDATE SKIP LOCKED
+       )
+       UPDATE import_jobs AS jobs
+       SET status = $2,
+           processed = 0,
+           success = 0,
+           failure = 0,
+           error_message = NULL
+       FROM next_job
+       WHERE jobs.id = next_job.id
+       RETURNING jobs.id, jobs.operator_id, jobs.original_filename, jobs.stored_path, jobs.size_bytes, jobs.status, jobs.processed, jobs.success, jobs.failure, jobs.error_message, jobs.created_at`,
+      [QUEUED_STATUS, PROCESSING_STATUS],
+    );
+    return result.rows[0] ?? null;
+  } catch (error) {
+    if (isUniqueViolation(error)) {
+      return null;
+    }
+    throw error;
+  }
 }
 
 export async function recoverAndClaimJob(pool: Pool): Promise<ImportJob | null> {
@@ -129,8 +137,9 @@ export async function failJob(
          processed = 0,
          success = 0,
          failure = 0
-     WHERE id = $1`,
-    [jobId, FAILED_STATUS, errorMessage],
+     WHERE id = $1
+       AND status = $4`,
+    [jobId, FAILED_STATUS, errorMessage, PROCESSING_STATUS],
   );
 }
 
@@ -163,15 +172,22 @@ export async function incrementJobCounts(
   db: Queryable,
   jobId: string,
   field: "success" | "failure",
-): Promise<void> {
-  await db.query(
+): Promise<boolean> {
+  const result = await db.query(
     `UPDATE import_jobs
      SET processed = processed + 1,
          success = success + $2,
          failure = failure + $3
-     WHERE id = $1`,
-    [jobId, field === "success" ? 1 : 0, field === "failure" ? 1 : 0],
+     WHERE id = $1
+       AND status = $4`,
+    [
+      jobId,
+      field === "success" ? 1 : 0,
+      field === "failure" ? 1 : 0,
+      PROCESSING_STATUS,
+    ],
   );
+  return (result.rowCount ?? 0) > 0;
 }
 
 export async function countJobs(pool: Pool): Promise<number> {

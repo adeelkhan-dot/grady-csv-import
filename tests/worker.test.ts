@@ -9,11 +9,16 @@ import {
   createQueuedJob,
   FAILED_STATUS,
   getImportJob,
+  PROCESSING_STATUS,
 } from "@/lib/jobs";
 import { migrate } from "@/lib/migrate";
 import { findOperatorByEmail } from "@/lib/operators";
 import { seedOperator } from "@/lib/seed";
-import { runWorkerOnce } from "@/lib/worker";
+import {
+  releaseWorkerLock,
+  runWorkerOnce,
+  tryAcquireWorkerLock,
+} from "@/lib/worker";
 
 const pool = getPool();
 let operatorId: string;
@@ -81,4 +86,33 @@ test("runWorkerOnce processes a queued job and leaves the CSV on disk", async ()
 test("runWorkerOnce returns null when there is no queued job", async () => {
   await isolateJobs();
   expect(await runWorkerOnce(pool)).toBeNull();
+});
+
+test("runWorkerOnce does not fail an in-flight job when another worker holds the lock", async () => {
+  await isolateJobs();
+  const lockClient = await pool.connect();
+  try {
+    expect(await tryAcquireWorkerLock(lockClient)).toBe(true);
+
+    const job = await createQueuedJob(pool, {
+      operatorId,
+      originalFilename: `lock-${randomUUID()}.csv`,
+      bytes: Buffer.from(
+        "email,first_name,last_name\npat@example.com,Pat,Lee\n",
+        "utf8",
+      ),
+    });
+    await pool.query("UPDATE import_jobs SET status = $1 WHERE id = $2", [
+      PROCESSING_STATUS,
+      job.id,
+    ]);
+
+    expect(await runWorkerOnce(pool)).toBeNull();
+    const after = await getImportJob(pool, job.id);
+    expect(after?.status).toBe(PROCESSING_STATUS);
+    expect(after?.error_message).toBeNull();
+  } finally {
+    await releaseWorkerLock(lockClient);
+    lockClient.release();
+  }
 });

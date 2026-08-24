@@ -15,7 +15,7 @@ export async function commitSuccessfulRow(
     first_name: string;
     last_name: string;
   },
-): Promise<void> {
+): Promise<boolean> {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -30,17 +30,21 @@ export async function commitSuccessfulRow(
       lineNumber: input.lineNumber,
       success: true,
     });
-    await incrementJobCounts(client, input.jobId, "success");
+    const counted = await incrementJobCounts(client, input.jobId, "success");
+    if (!counted) {
+      await client.query("ROLLBACK");
+      return false;
+    }
     await client.query("COMMIT");
+    return true;
   } catch (error) {
     await client.query("ROLLBACK");
     if (isUniqueViolation(error)) {
-      await commitFailedRow(pool, {
+      return commitFailedRow(pool, {
         jobId: input.jobId,
         lineNumber: input.lineNumber,
         reason: DUPLICATE_EMAIL_REASON,
       });
-      return;
     }
     throw error;
   } finally {
@@ -55,7 +59,7 @@ export async function commitFailedRow(
     lineNumber: number;
     reason: string;
   },
-): Promise<void> {
+): Promise<boolean> {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -65,8 +69,13 @@ export async function commitFailedRow(
       success: false,
       failureReason: input.reason,
     });
-    await incrementJobCounts(client, input.jobId, "failure");
+    const counted = await incrementJobCounts(client, input.jobId, "failure");
+    if (!counted) {
+      await client.query("ROLLBACK");
+      return false;
+    }
     await client.query("COMMIT");
+    return true;
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;

@@ -9,7 +9,12 @@ import {
   DUPLICATE_EMAIL_REASON,
 } from "@/lib/commit-row";
 import { closePool, getPool } from "@/lib/db";
-import { createQueuedJob } from "@/lib/jobs";
+import {
+  COMPLETED_STATUS,
+  createQueuedJob,
+  FAILED_STATUS,
+  PROCESSING_STATUS,
+} from "@/lib/jobs";
 import { migrate } from "@/lib/migrate";
 import { findOperatorByEmail } from "@/lib/operators";
 import { seedOperator } from "@/lib/seed";
@@ -42,16 +47,32 @@ afterAll(async () => {
   await closePool();
 });
 
-async function queuedJob() {
-  return createQueuedJob(pool, {
+async function isolateJobs() {
+  await pool.query(
+    `UPDATE import_jobs
+     SET status = $1,
+         error_message = 'test isolation'
+     WHERE status IN ('queued', 'processing')`,
+    [FAILED_STATUS],
+  );
+}
+
+async function processingJob() {
+  await isolateJobs();
+  const job = await createQueuedJob(pool, {
     operatorId,
     originalFilename: `commit-${randomUUID()}.csv`,
     bytes: Buffer.from("email,first_name,last_name\n"),
   });
+  await pool.query("UPDATE import_jobs SET status = $1 WHERE id = $2", [
+    PROCESSING_STATUS,
+    job.id,
+  ]);
+  return job;
 }
 
 test("a valid row persists a person, success outcome, and matching counts", async () => {
-  const job = await queuedJob();
+  const job = await processingJob();
   const email = `pat-${randomUUID()}@example.com`;
 
   await commitSuccessfulRow(pool, {
@@ -88,8 +109,7 @@ test("a valid row persists a person, success outcome, and matching counts", asyn
 });
 
 test("duplicate email records a failure and does not update the existing person", async () => {
-  const firstJob = await queuedJob();
-  const secondJob = await queuedJob();
+  const firstJob = await processingJob();
   const email = `dup-${randomUUID()}@example.com`;
 
   await commitSuccessfulRow(pool, {
@@ -106,6 +126,19 @@ test("duplicate email records a failure and does not update the existing person"
     first_name: "Kim",
     last_name: "Ng",
   });
+  await pool.query("UPDATE import_jobs SET status = $1 WHERE id = $2", [
+    COMPLETED_STATUS,
+    firstJob.id,
+  ]);
+  const secondJob = await createQueuedJob(pool, {
+    operatorId,
+    originalFilename: `commit-${randomUUID()}.csv`,
+    bytes: Buffer.from("email,first_name,last_name\n"),
+  });
+  await pool.query("UPDATE import_jobs SET status = $1 WHERE id = $2", [
+    PROCESSING_STATUS,
+    secondJob.id,
+  ]);
   await commitSuccessfulRow(pool, {
     jobId: secondJob.id,
     lineNumber: 2,
@@ -145,7 +178,7 @@ test("duplicate email records a failure and does not update the existing person"
 });
 
 test("a failed row writes an outcome and increments failure without inserting a person", async () => {
-  const job = await queuedJob();
+  const job = await processingJob();
 
   await commitFailedRow(pool, {
     jobId: job.id,
@@ -172,4 +205,40 @@ test("a failed row writes an outcome and increments failure without inserting a 
     failure_reason: "email is invalid",
   });
   expect(counts.rows[0]).toEqual({ processed: 1, success: 0, failure: 1 });
+});
+
+test("commits do not write after the job leaves processing", async () => {
+  const job = await processingJob();
+  await pool.query("UPDATE import_jobs SET status = $1 WHERE id = $2", [
+    FAILED_STATUS,
+    job.id,
+  ]);
+  const email = `stale-${randomUUID()}@example.com`;
+
+  expect(
+    await commitSuccessfulRow(pool, {
+      jobId: job.id,
+      lineNumber: 2,
+      email,
+      first_name: "Pat",
+      last_name: "Lee",
+    }),
+  ).toBe(false);
+
+  const people = await pool.query(
+    "SELECT count(*)::int AS n FROM imported_people WHERE created_from_job_id = $1",
+    [job.id],
+  );
+  const outcomes = await pool.query(
+    "SELECT count(*)::int AS n FROM import_row_outcomes WHERE job_id = $1",
+    [job.id],
+  );
+  const counts = await pool.query(
+    "SELECT processed, success, failure FROM import_jobs WHERE id = $1",
+    [job.id],
+  );
+
+  expect(people.rows[0].n).toBe(0);
+  expect(outcomes.rows[0].n).toBe(0);
+  expect(counts.rows[0]).toEqual({ processed: 0, success: 0, failure: 0 });
 });

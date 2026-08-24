@@ -38,3 +38,7 @@ CREATE TABLE IF NOT EXISTS import_row_outcomes (
     OR (success = false AND failure_reason IS NOT NULL)
   )
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS import_jobs_one_processing
+  ON import_jobs ((true))
+  WHERE status = 'processing';
