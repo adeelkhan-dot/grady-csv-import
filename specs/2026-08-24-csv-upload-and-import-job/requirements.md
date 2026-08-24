@@ -8,7 +8,7 @@ An authenticated operator can upload one CSV file and receive a persisted import
 
 ## Context
 
-This is Phase 1 of the roadmap in a greenfield Next.js + PostgreSQL product. The repository has no application code yet. Mission requires background processing of large CSVs; that worker, row-level partial import, status/progress UI, and in-app job notifications are later phases.
+This is Phase 1 of the roadmap in a greenfield Next.js + PostgreSQL product. The repository had no application code when this spec was written. Mission requires background processing of large CSVs; Phase 2 delivered the worker and row-level partial import. Status/progress UI and in-app job notifications remain later phases.
 
 Exact CSV columns were deferred from the foundation to this spec. The documented schema is not enforced at upload time.
 

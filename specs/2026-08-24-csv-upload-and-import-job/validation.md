@@ -19,7 +19,7 @@ Trace each check to `requirements.md` acceptance criteria (AC).
 | Filename uniqueness is not global | 8 | A different operator can queue the same original filename |
 | On-disk name is not the original filename | 9 | Stored path/basename differs from the original filename |
 | Columns are not validated | 10 | A `.csv` whose headers are not `email,first_name,last_name` still creates a `queued` job |
-| No imported users or per-row results | 11 | Success path does not insert imported-user or per-row result records |
+| No imported users or per-row results | 11 | Success path does not insert into imported-people or per-row outcome tables |
 | Automated coverage exists | 12 | Tests listed below run and pass |
 
 ## Automated tests
@@ -33,7 +33,7 @@ Required coverage:
 - Session required for upload API; unauthenticated POST creates no job
 - Logout invalidates the session
 - Valid upload: file written, job `queued`, job id returned, on-disk name is not the original filename
-- Successful upload does not create imported-user or per-row result records
+- Successful upload does not insert imported-people or per-row outcome records (tables exist after Phase 2; upload must not write to them)
 - Reject empty file
 - Reject file larger than 50 MB
 - Reject original filename not ending in `.csv` (include a `data.CSV` case)
@@ -50,7 +50,7 @@ Not required for this merge bar (later phases):
 - Status/progress page
 - In-app job completion notifications
 
-Tech-stack language about “row-level success and failure” and “mixed-success completion” applies starting in Phase 2, not this phase.
+Tech-stack language about “row-level success and failure” and “mixed-success completion” applies starting in Phase 2 (now complete), not this phase.
 
 ## Manual verification
 

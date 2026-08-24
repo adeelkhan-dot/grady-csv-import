@@ -1,4 +1,4 @@
-import { mkdir, unlink, writeFile } from "node:fs/promises";
+import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 export function getUploadDir(): string {
@@ -14,6 +14,10 @@ export async function writeJobFile(jobId: string, bytes: Buffer): Promise<string
   await mkdir(path.dirname(storedPath), { recursive: true });
   await writeFile(storedPath, bytes, { flag: "wx" });
   return storedPath;
+}
+
+export async function readJobFile(storedPath: string): Promise<Buffer> {
+  return readFile(storedPath);
 }
 
 export async function removeJobFile(storedPath: string): Promise<void> {

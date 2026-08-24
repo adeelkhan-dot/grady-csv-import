@@ -2,7 +2,7 @@
 
 Phases are high-level and independently specifiable. Do not treat this file as a task list.
 
-**Current next feature:** Background processing with partial success (Phase 2)
+**Current next feature:** Import status and progress (Phase 3)
 
 ## Phase 1 — CSV upload and import job
 
@@ -14,7 +14,7 @@ Phases are high-level and independently specifiable. Do not treat this file as a
 
 - Goal: A worker processes rows asynchronously. Valid rows persist, failed rows are recorded, and mixed success is allowed.
 - Depends on: Phase 1
-- Status: not started
+- Status: complete
 
 ## Phase 3 — Import status and progress
 
