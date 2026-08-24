@@ -176,3 +176,22 @@ test("failInterruptedJobs does not resume or delete committed people", async () 
   expect(person.rows[0]).toMatchObject({ email, first_name: "Pat" });
   expect(await recoverAndClaimJob(pool)).toBeNull();
 });
+
+test("concurrent claims cannot mark two jobs processing", async () => {
+  await isolateJobs();
+  await queuedJob();
+  await queuedJob();
+
+  const [first, second] = await Promise.all([
+    claimQueuedJob(pool),
+    claimQueuedJob(pool),
+  ]);
+  const claimed = [first, second].filter((job) => job !== null);
+
+  expect(claimed).toHaveLength(1);
+  const processing = await pool.query<{ n: number }>(
+    "SELECT count(*)::int AS n FROM import_jobs WHERE status = $1",
+    [PROCESSING_STATUS],
+  );
+  expect(processing.rows[0].n).toBe(1);
+});

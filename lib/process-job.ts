@@ -22,20 +22,22 @@ export async function processImportJob(pool: Pool, job: ImportJob): Promise<void
   }
 
   for (const row of parsed.rows) {
-    if (row.kind === "valid") {
-      await commitSuccessfulRow(pool, {
-        jobId: job.id,
-        lineNumber: row.lineNumber,
-        email: row.email,
-        first_name: row.first_name,
-        last_name: row.last_name,
-      });
-    } else {
-      await commitFailedRow(pool, {
-        jobId: job.id,
-        lineNumber: row.lineNumber,
-        reason: row.reason,
-      });
+    const continued =
+      row.kind === "valid"
+        ? await commitSuccessfulRow(pool, {
+            jobId: job.id,
+            lineNumber: row.lineNumber,
+            email: row.email,
+            first_name: row.first_name,
+            last_name: row.last_name,
+          })
+        : await commitFailedRow(pool, {
+            jobId: job.id,
+            lineNumber: row.lineNumber,
+            reason: row.reason,
+          });
+    if (!continued) {
+      return;
     }
   }
 
