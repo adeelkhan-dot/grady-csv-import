@@ -27,17 +27,21 @@ Imported people are records in this product, not users of this product.
   - Status and progress UI
   - In-app notification when a job finishes or fails
   - Row-level success and failure (partial import)
+  - Operator sign-in with email and password (seeded accounts)
 - Out of scope (only what the human confirmed)
   - A broader admin portal (roles, billing, unrelated admin tools)
   - Email, Slack, or webhook notifications
   - Integrating with an external identity or user store
+  - Operator self-serve sign-up, invites, password reset, or SSO
   - Multi-tenant SaaS for multiple clients
 
 ## Important product context
 
 This repository is a standalone bulk-import product: the import UI, backend, and jobs live here. The client’s wider admin portal is not this product.
 
-Exact CSV columns and validation rules are not part of this foundation; they belong in the first feature spec.
+Operator authentication is email and password with cookie sessions. Accounts are seeded/configured only.
+
+Exact CSV columns and row-validation rules are specified in feature specs, not in this foundation. Phase 1 documents columns as `email`, `first_name`, `last_name` and defers enforcement to processing.
 
 ## Provenance
 
@@ -50,5 +54,6 @@ Exact CSV columns and validation rules are not part of this foundation; they bel
   - Partial import means row-level commit with mixed success allowed.
   - v1 notifications are in-app.
   - Single-tenant: one enterprise client.
+  - Operators sign in with email and password; accounts are seeded only (no self-serve sign-up, invites, password reset, or SSO).
 - Assumptions
-  - None. Remaining gaps (CSV schema, exact auth mechanism) are deferred, not assumed.
+  - None. CSV row-validation rules remain in later feature specs.
