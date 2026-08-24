@@ -1,6 +1,8 @@
 # Validation — Background processing with partial success
 
-Status: **planned**
+Status: **complete**
+
+Automated coverage for this phase is in `tests/processing.test.ts`, `tests/worker.test.ts`, `tests/job-claim.test.ts`, `tests/row-commit.test.ts`, `tests/schema.test.ts`, `tests/csv.test.ts`, and Phase 1 regressions in `tests/upload.test.ts`. Command: `npm test` (Vitest, Compose Postgres). Manual checks below remain for a human sign-off.
 
 ## Acceptance checks
 
@@ -26,7 +28,7 @@ Trace each check to `requirements.md` acceptance criteria (AC).
 
 Command: `npm test` (Vitest). Requires Compose Postgres as in Phase 1.
 
-Required coverage:
+Required coverage (implemented):
 
 - Worker/orchestrator claims `queued` → `processing` → a terminal status
 - Upload path still does not parse CSV or insert people/outcomes
@@ -58,10 +60,10 @@ Not required for this merge bar (later phases):
 
 ## Manual verification
 
-Run against local Postgres, a seeded operator, the Next.js app, and the worker process.
+Run against local Postgres, a seeded operator, the Next.js app, and `npm run worker`.
 
 1. Sign in and upload a small CSV with headers `email,first_name,last_name` and two valid unique rows. Confirm the upload page still shows a job id and the job is `queued` until the worker starts.
-2. Start the documented worker command. Confirm the job becomes `completed`, two people exist, and the file is still on disk.
+2. Start `npm run worker`. Confirm the job becomes `completed`, two people exist, and the file is still on disk.
 3. Upload a file with one valid row and one invalid email. Confirm `completed_with_errors`, one person, one failure outcome with a reason.
 4. Upload a file missing `last_name` in the header. Confirm `failed`, job-level error, no people from that job.
 5. Re-upload a file that includes an already imported email. Confirm the duplicate row fails and the original person is unchanged.
@@ -95,7 +97,7 @@ Optional crash check: mark or simulate a job left in `processing` after some ins
 - Operator UI still has no job list, progress view, or notifications.
 - Do not treat the absence of Phase 3–4 UI as a regression.
 
-Update the Phase 1 test that required imported-person / per-row **tables not to exist**: after this phase those tables exist; the regression is that **upload must not insert into them**.
+The Phase 1 test that required imported-person / per-row **tables not to exist** was updated: those tables exist after this phase; the regression is that **upload must not insert into them**.
 
 ## Integration checks
 

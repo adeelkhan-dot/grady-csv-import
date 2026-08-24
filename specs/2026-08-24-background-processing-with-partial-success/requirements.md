@@ -1,6 +1,6 @@
 # Background processing with partial success
 
-Status: **planned**
+Status: **complete**
 
 ## Feature goal
 
@@ -8,7 +8,7 @@ A separate worker process picks up `queued` import jobs, processes CSV rows asyn
 
 ## Context
 
-This is Phase 2 of the roadmap. Phase 1 delivers authenticated CSV upload, local-disk storage, and a persisted `queued` job (`specs/2026-08-24-csv-upload-and-import-job/`). Mission requires row-level partial import: valid rows are saved, invalid rows are recorded, and mixed success is a normal terminal state. Phase 3 will show status/progress; this phase only writes the data that page will read. Phase 4 notifications are out of scope.
+This is Phase 2 of the roadmap. Phase 1 delivered authenticated CSV upload, local-disk storage, and a persisted `queued` job (`specs/2026-08-24-csv-upload-and-import-job/`). Mission requires row-level partial import: valid rows are saved, invalid rows are recorded, and mixed success is a normal terminal state. Phase 3 will show status/progress; this phase only writes the data that page will read. Phase 4 notifications are out of scope.
 
 Job infrastructure is a Node worker plus PostgreSQL job/row/people tables. No BullMQ, Redis, SQS, or other job platform (`specs/tech-stack.md`).
 
@@ -140,3 +140,17 @@ Operators upload files with tens of thousands of rows and cannot wait for import
 11. The stored CSV still exists after terminal status. No status page, job-read API, or notification UI is added.
 12. Duplicate original filename is still rejected only for `queued` jobs of that operator.
 13. Automated tests cover job state transitions, row-level success and failure, mixed-success completion, duplicate email, header failure, crash-to-failed, and that upload still does not import rows.
+
+## Implementation
+
+Shipped as specified. Concrete mapping:
+
+- Schema: `db/migrations/003_import_processing.sql` — `imported_people` (unique `email`, `created_from_job_id`) and `import_row_outcomes` (unique `(job_id, line_number)`); `import_jobs` gains `processed`, `success`, `failure`, `error_message`, and allowed statuses `queued` | `processing` | `completed` | `completed_with_errors` | `failed`.
+- CSV parse/validate: `lib/csv.ts` (headers `email`, `first_name`, `last_name`).
+- Row-level commit: `lib/people.ts`, `lib/outcomes.ts`, `lib/commit-row.ts`.
+- Claim, terminals, crash recovery: `lib/jobs.ts`.
+- Worker: `lib/process-job.ts`, `lib/worker.ts`, `scripts/worker.ts`; run with `npm run worker`. Poll interval `WORKER_POLL_INTERVAL_MS` (default 1000ms). Worker uses `DATABASE_URL` like the app.
+- Upload still only queues: `app/api/upload/route.ts` (the upload handler does not start the worker).
+- Local run docs: README (`npm run worker`).
+- Tests: `tests/schema.test.ts`, `tests/csv.test.ts`, `tests/row-commit.test.ts`, `tests/job-claim.test.ts`, `tests/worker.test.ts`, `tests/processing.test.ts`; Phase 1 upload regressions in `tests/upload.test.ts`.
+- Job-level errors used in code include `"Worker interrupted"` and `"No rows were imported"`. Duplicate-email row reason is `"email already exists"`.

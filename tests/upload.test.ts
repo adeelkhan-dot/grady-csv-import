@@ -232,22 +232,36 @@ test("filename case is significant for queued duplicates", async () => {
   expect(upper.status).toBe(200);
 });
 
-test("successful upload does not create imported-user or per-row result tables", async () => {
+test("duplicate original filename is allowed once the job is no longer queued", async () => {
+  const cookie = await sessionCookie();
+  const filename = `again-${Date.now()}.csv`;
+  const first = await postFile(csvFile(filename, "a,b\n"), cookie);
+  expect(first.status).toBe(200);
+  const body = (await first.json()) as { id: string };
+  await pool.query("UPDATE import_jobs SET status = 'completed' WHERE id = $1", [
+    body.id,
+  ]);
+  const second = await postFile(csvFile(filename, "a,b\n"), cookie);
+  expect(second.status).toBe(200);
+});
+
+test("successful upload does not insert people or row outcomes", async () => {
   const cookie = await sessionCookie();
   const response = await postFile(
     csvFile(`schema-${Date.now()}.csv`, "email,first_name,last_name\n"),
     cookie,
   );
   expect(response.status).toBe(200);
+  const body = (await response.json()) as { id: string };
 
-  const tables = await pool.query<{ tablename: string }>(
-    `SELECT tablename
-     FROM pg_catalog.pg_tables
-     WHERE schemaname = 'public'
-     ORDER BY tablename`,
+  const people = await pool.query<{ n: number }>(
+    "SELECT count(*)::int AS n FROM imported_people WHERE created_from_job_id = $1",
+    [body.id],
   );
-  expect(tables.rows.map((row) => row.tablename)).toEqual([
-    "import_jobs",
-    "operators",
-  ]);
+  const outcomes = await pool.query<{ n: number }>(
+    "SELECT count(*)::int AS n FROM import_row_outcomes WHERE job_id = $1",
+    [body.id],
+  );
+  expect(people.rows[0].n).toBe(0);
+  expect(outcomes.rows[0].n).toBe(0);
 });
