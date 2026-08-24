@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: grady
+      POSTGRES_PASSWORD: grady
+      POSTGRES_DB: grady
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U grady -d grady"]
+      interval: 2s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  postgres_data:
