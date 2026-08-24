@@ -2,13 +2,13 @@
 
 Phases are high-level and independently specifiable. Do not treat this file as a task list.
 
-**Current next feature:** CSV upload and import job
+**Current next feature:** Background processing with partial success (Phase 2)
 
 ## Phase 1 — CSV upload and import job
 
 - Goal: An operator can upload a CSV and create a persisted import job.
 - Depends on: (none)
-- Status: not started
+- Status: complete
 
 ## Phase 2 — Background processing with partial success
 

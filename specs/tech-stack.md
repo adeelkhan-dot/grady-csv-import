@@ -23,6 +23,7 @@ PostgreSQL, run locally and in CI with Docker Compose and the official `postgres
 - Job state, progress, per-row results, and imported user records are stored in PostgreSQL.
 - Local and CI Postgres is a Compose service only. Do not put the Next.js app in Docker unless that is chosen later.
 - Operators authenticate with email and password. Sessions use an HTTP-only cookie. Operator records live in PostgreSQL.
+- Operator UI styling uses Tailwind CSS in the Next.js App Router. No component library (for example shadcn/ui) unless later approved.
 - The status page reads persisted job state; it does not depend on the original upload request remaining open.
 - Completion and failure notifications in v1 are in-app, tied to the job and status UI.
 
@@ -40,7 +41,7 @@ Automated unit and integration tests. Tests must cover CSV ingest, row-level suc
 
 - Local/CI database: Docker Compose + official `postgres` image; app connection string from env (for example `DATABASE_URL`).
 - Operator auth: email/password, HTTP-only session cookie, operators table in PostgreSQL.
-- No other application conventions yet. This is otherwise a greenfield repository.
+- Operator UI: Tailwind CSS utilities in App Router pages. No UI component kit unless later approved.
 
 ## Provenance
 
@@ -48,6 +49,7 @@ Automated unit and integration tests. Tests must cover CSV ingest, row-level suc
   - No package manifest, framework, or database was present in the repository.
 - Confirmed decisions
   - TypeScript, Node.js, Next.js, PostgreSQL.
+  - Operator UI styling: Tailwind CSS (App Router). No component library unless later approved.
   - Worker process plus job and row tables in PostgreSQL. No Redis, SQS, or third-party job platform unless chosen later.
   - Local/CI Postgres via Docker Compose and the official `postgres` image. Next.js is not containerized for this.
   - Operator auth: email/password, HTTP-only cookie session, operators in PostgreSQL. No SSO in v1.

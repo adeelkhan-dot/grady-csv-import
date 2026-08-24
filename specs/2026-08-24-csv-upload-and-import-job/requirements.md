@@ -1,6 +1,6 @@
 # CSV upload and import job
 
-Status: **planned**
+Status: **complete**
 
 ## Feature goal
 
@@ -49,7 +49,7 @@ Admin operators need a way to submit a bulk user CSV without waiting for row pro
 
 ## Constraints
 
-- Stack is TypeScript, Node.js, Next.js, and PostgreSQL (`specs/tech-stack.md`).
+- Stack is TypeScript, Node.js, Next.js, PostgreSQL, and Tailwind CSS for the operator UI (`specs/tech-stack.md`). Visual restyling must not change acceptance criteria 1–12.
 - Import work is asynchronous by architecture; this phase only creates the persisted job and stored file.
 - File storage is local disk, not object storage and not PostgreSQL bytea.
 - Single-tenant: one enterprise client. No broader admin portal (roles, billing, unrelated admin tools).
@@ -67,6 +67,7 @@ Admin operators need a way to submit a bulk user CSV without waiting for row pro
 - Duplicate original filename is rejected only for the same operator while a job with that exact filename is still `queued`.
 - Filename matching uses the exact original filename string from the browser (case-sensitive), not a normalized basename.
 - Post-upload UX is confirmation on the same upload page, including job id. No job list or status page in this phase.
+- Operator UI is styled with Tailwind CSS. Visual polish must not change acceptance criteria 1–12. No component library unless later approved.
 - Disk object names are unique ids; original filename is metadata used for duplicate checks and display.
 
 ## Assumptions

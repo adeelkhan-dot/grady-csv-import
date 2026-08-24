@@ -1,6 +1,6 @@
 # Validation — CSV upload and import job
 
-Status: **planned**
+Status: **complete**
 
 ## Acceptance checks
 
@@ -66,6 +66,7 @@ Run against a local app with PostgreSQL and a seeded operator.
 8. If a second seeded operator exists, log in as them and upload the same original filename; confirm it succeeds.
 9. Confirm rejected fixtures do not create jobs: empty file, `> 50 MB` file, `report.txt`, `data.CSV`.
 10. Log out from the upload page using the logout control.
+11. Confirm login and upload look like a coherent styled UI: readable layout and typography, a clear primary action on each page, and visible error and success states. This check does not add product acceptance criteria.
 
 ## Failure scenarios
 
